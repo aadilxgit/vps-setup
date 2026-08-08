@@ -1,0 +1,5 @@
+# Temporary work directory containing generated preseeds, keys, and netboot images
+.work/
+
+# Local configuration containing SSH keys and secrets (copy config.env.example to config.env)
+config.env
