@@ -48,7 +48,7 @@ Configure `INSTALL_ROLE` in `config.env`:
 ### 1. Clone and configure
 
 ```bash
-git clone <this-repo> /root/vps-setup
+git clone https://github.com/aadilxgit/vps-setup.git /root/vps-setup
 cd /root/vps-setup
 cp config.env.example config.env
 vim config.env    # edit with your details
