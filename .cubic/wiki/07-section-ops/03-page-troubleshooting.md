@@ -54,8 +54,8 @@ This diagram shows the recommended troubleshooting workflow using the Dry Run fe
 During the active installation, the Debian installer loads configuration directly from the offline RAMdisk initrd payload.
 
 ### Netboot Download Verification
-The `lib/download.sh` script verifies the integrity of the downloaded Debian kernel (`linux`) and initial RAM disk (`initrd.gz`) using SHA256 checksums fetched from the mirror. If checksum verification fails, a warning is issued to the console.
-Sources: [lib/download.sh:95-132](lib/download.sh#L95-L132)
+The `lib/download.sh` script verifies the integrity of the downloaded Debian kernel (`linux`) and initial RAM disk (`initrd.gz`) using SHA256 checksums fetched from the mirror. If checksum verification fails, the download fails closed and aborts the installation.
+Sources: [lib/download.sh:95-140](lib/download.sh#L95-L140)
 
 ### Installer Payload & Network Logs
 If the Debian installer cannot load configuration, ensure `initrd.kexec.gz` contains `preseed.cfg`.
@@ -67,7 +67,7 @@ Sources: [lib/kexec_boot.sh:40-85](lib/kexec_boot.sh#L40-L85), [lib/kexec_boot.s
 | **kexec Load** | Console Output | Confirms the kernel and initrd were loaded into memory. |
 | **Network Config** | `print_network_config` | Displays detected/configured IPv4, Gateway, and DNS. |
 
-Sources: [lib/kexec_boot.sh:40-85](lib/kexec_boot.sh#L40-L85), [lib/detect_network.sh:135-157](lib/detect_network.sh#L135-L157)
+Sources: [lib/kexec_boot.sh:117-131](lib/kexec_boot.sh#L117-L131), [lib/detect_network.sh:141-162](lib/detect_network.sh#L141-L162)
 
 ## Post-Installation & Security Reports
 

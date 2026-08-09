@@ -215,8 +215,10 @@ load_config() {
         DEBIAN_MIRROR="https://ftp.debian.org/debian"
     fi
     DEBIAN_MIRROR="${DEBIAN_MIRROR:-https://deb.debian.org/debian}"
-    if [[ "${DEBIAN_MIRROR}" != https://* ]]; then
-        log_error "DEBIAN_MIRROR must use HTTPS (got '${DEBIAN_MIRROR}')."
+    local mirror_clean="${DEBIAN_MIRROR#https://}"
+    local mirror_host="${mirror_clean%%/*}"
+    if [[ "${DEBIAN_MIRROR}" != https://* ]] || [[ -z "${mirror_host}" ]] || [[ "${DEBIAN_MIRROR}" =~ [[:space:]] ]]; then
+        log_error "DEBIAN_MIRROR must be a valid HTTPS URL with a hostname (got '${DEBIAN_MIRROR}')."
         errors=$((errors + 1))
     fi
 

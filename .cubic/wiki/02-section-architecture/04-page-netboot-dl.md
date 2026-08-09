@@ -77,7 +77,7 @@ The system fetches three primary artifacts to ensure a successful and secure boo
 | `initrd.gz` | `.work/initrd.gz` | The compressed initial RAM disk containing installer tools. |
 | `SHA256SUMS` | Temporary | Metadata used to verify the integrity of the downloaded binaries. |
 
-Sources: [lib/download.sh:36-41](lib/download.sh#L36-L41), [setup.sh:448-460](setup.sh#L448-L460)
+Sources: [lib/download.sh:36-41](lib/download.sh#L36-L41), [setup.sh:458-471](setup.sh#L458-L471)
 
 ### Validation Logic
 To prevent corrupt installations, the script performs multiple checks:
@@ -85,7 +85,7 @@ To prevent corrupt installations, the script performs multiple checks:
 2.  **Size Validation**: Both the kernel and `initrd.gz` must exceed 1,000,000 bytes. If a file is smaller, the download is considered failed.
 3.  **Integrity Verification**: The script downloads the `SHA256SUMS` file from the mirror and executes `sha256sum -c --ignore-missing` to validate the files against official metadata.
 
-Sources: [lib/download.sh:28-32](lib/download.sh#L28-L32), [lib/download.sh:61-81](lib/download.sh#L61-L81), [lib/download.sh:95-132](lib/download.sh#L95-L132)
+Sources: [lib/download.sh:28-32](lib/download.sh#L28-L32), [lib/download.sh:61-81](lib/download.sh#L61-L81), [lib/download.sh:95-140](lib/download.sh#L95-L140)
 
 ## Configuration Integration
 
@@ -98,16 +98,16 @@ local kernel_url="${base_url}/linux"
 local initrd_url="${base_url}/initrd.gz"
 ```
 
-Sources: [lib/download.sh:43-46](lib/download.sh#L43-L46)
+Sources: [lib/download.sh:55-58](lib/download.sh#L55-L58)
 
 ### Relevant Configuration Variables
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
 | `DEBIAN_RELEASE` | `trixie` | The version of Debian to download (e.g., trixie, bookworm). |
-| `DEBIAN_MIRROR` | `https://deb.debian.org/debian` | The base URL of the Debian APT mirror (must use HTTPS). |
+| `DEBIAN_MIRROR` | `https://deb.debian.org/debian` | The base URL of the Debian APT mirror (must use HTTPS; legacy http://deb.debian.org/debian and http://ftp.debian.org/debian are automatically upgraded to HTTPS). |
 | `WORK_DIR` | `.work` | The directory where files are stored (defaulting to a subdirectory of the script path). |
 
-Sources: [setup.sh:213-223](setup.sh#L213-L223), [setup.sh:32](setup.sh#L32)
+Sources: [setup.sh:208-226](setup.sh#L208-L226), [setup.sh:32](setup.sh#L32)
 
 ## Execution Environment
 
@@ -115,7 +115,7 @@ The download process is triggered within the `main` function of `setup.sh`. It c
 *  **Dry Run (`--dry-run`)**: Instead of downloading, the script creates empty "mock" files in the `.work` directory to allow template generation and inspection without network activity.
 *  **Skip Download (`--skip-download`)**: Allows the user to reuse existing files already present in the `.work` directory.
 
-Sources: [setup.sh:375-405](setup.sh#L375-L405), [setup.sh:455-467](setup.sh#L455-L467)
+Sources: [setup.sh:375-405](setup.sh#L375-L405), [setup.sh:458-471](setup.sh#L458-L471)
 
 After successful download and verification, these files are utilized by `lib/kexec_boot.sh` to load the installer into memory, replacing the current running kernel.
 
