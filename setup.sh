@@ -215,10 +215,39 @@ load_config() {
         DEBIAN_MIRROR="https://ftp.debian.org/debian"
     fi
     DEBIAN_MIRROR="${DEBIAN_MIRROR:-https://deb.debian.org/debian}"
-    local mirror_clean="${DEBIAN_MIRROR#https://}"
-    local mirror_host="${mirror_clean%%/*}"
-    if [[ "${DEBIAN_MIRROR}" != https://* ]] || [[ -z "${mirror_host}" ]] || [[ "${DEBIAN_MIRROR}" =~ [[:space:]] ]]; then
-        log_error "DEBIAN_MIRROR must be a valid HTTPS URL with a hostname (got '${DEBIAN_MIRROR}')."
+    local mirror_valid=true
+    if [[ "${DEBIAN_MIRROR}" != https://* ]] || [[ "${DEBIAN_MIRROR}" =~ [[:space:]\?#@] ]]; then
+        mirror_valid=false
+    else
+        local m_clean="${DEBIAN_MIRROR#https://}"
+        local m_hp="${m_clean%%/*}"
+        local m_host="" m_port=""
+        if [[ -z "${m_hp}" ]]; then
+            mirror_valid=false
+        elif [[ "${m_hp}" == \[*\]* ]]; then
+            m_host="${m_hp%%\]*}]"
+            local m_rest="${m_hp#*\]}"
+            if [[ -n "${m_rest}" ]]; then
+                if ! [[ "${m_rest}" == :* ]]; then mirror_valid=false; fi
+                m_port="${m_rest#:}"
+            fi
+        else
+            m_host="${m_hp%%:*}"
+            if [[ "${m_hp}" == *":"* ]]; then
+                m_port="${m_hp#*:}"
+            fi
+        fi
+        if [[ -n "${m_port}" ]]; then
+            if ! [[ "${m_port}" =~ ^[0-9]+$ ]] || (( m_port < 1 || m_port > 65535 )); then
+                mirror_valid=false;
+            fi
+        fi
+        if ! [[ "${m_host}" =~ ^([a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\])$ ]]; then
+            mirror_valid=false
+        fi
+    fi
+    if [[ "${mirror_valid}" != true ]]; then
+        log_error "DEBIAN_MIRROR must be a valid HTTPS URL with a valid hostname authority (got '${DEBIAN_MIRROR}')."
         errors=$((errors + 1))
     fi
 

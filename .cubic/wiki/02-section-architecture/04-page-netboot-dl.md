@@ -77,13 +77,13 @@ The system fetches three primary artifacts to ensure a successful and secure boo
 | `initrd.gz` | `.work/initrd.gz` | The compressed initial RAM disk containing installer tools. |
 | `SHA256SUMS` | Temporary | Metadata used to verify the integrity of the downloaded binaries. |
 
-Sources: [lib/download.sh:36-41](lib/download.sh#L36-L41), [setup.sh:458-471](setup.sh#L458-L471)
+Sources: [lib/download.sh:61-112](lib/download.sh#L61-L112), [setup.sh:458-471](setup.sh#L458-L471)
 
 ### Validation Logic
 To prevent corrupt installations, the script performs multiple checks:
 1.  **Dependency Check**: It ensures `wget` is installed, attempting to install it via `apt-get` if missing.
 2.  **Size Validation**: Both the kernel and `initrd.gz` must exceed 1,000,000 bytes. If a file is smaller, the download is considered failed.
-3.  **Integrity Verification**: The script downloads the `SHA256SUMS` file from the mirror and executes `sha256sum -c --ignore-missing` to validate the files against official metadata.
+3.  **Integrity Verification**: The script downloads `SHA256SUMS` from the mirror, filters for exactly `linux` and `initrd.gz` entries, requires both entries to be present, and executes `sha256sum -c`.
 
 Sources: [lib/download.sh:28-32](lib/download.sh#L28-L32), [lib/download.sh:61-81](lib/download.sh#L61-L81), [lib/download.sh:95-140](lib/download.sh#L95-L140)
 
@@ -93,10 +93,9 @@ The download process is highly dependent on global variables exported during the
 
 ```bash
 # Example URL construction in lib/download.sh
-local base_url="${DEBIAN_MIRROR}/dists/${DEBIAN_RELEASE}/main/installer-amd64/current/images/netboot/debian-installer/amd64"
+local base_url="${m}/${p}"
 local kernel_url="${base_url}/linux"
 local initrd_url="${base_url}/initrd.gz"
-```
 
 Sources: [lib/download.sh:55-58](lib/download.sh#L55-L58)
 
