@@ -77,6 +77,8 @@ The kernel command line is dynamically built to ensure static IP binding, consol
 | `keyboard-configuration/xkb-keymap` | `${KEYMAP}` | Keyboard layout for d-i |
 | `console` | `ttyS0,115200n8 console=tty0` | Dual console for Serial + VNC (`tty0` last for VNC primary) |
 | `hw-detect/load_firmware` | `true` | Auto-load firmware for hardware |
+| `nomodeset` | `nomodeset` | Disable KMS driver handover (prevents `bochs-drm` VNC freeze) |
+| `vga` | `normal` | Force standard VGA text mode for VNC console rendering |
 
 ### Late Command Anti-Hang Design
 The `preseed/late_command` is the most critical part of the installation flow. It copies the embedded `postinst.sh` from the initrd into the target system and executes it via `in-target`. Key anti-hang measures:

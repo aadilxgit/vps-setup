@@ -113,6 +113,9 @@ kexec_boot() {
     # Prevent installer from trying DHCP (wastes time, can override static config)
     kcmdline+="netcfg/use_autoconfig=false "
     kcmdline+="hw-detect/load_firmware=true "
+    # Video/Framebuffer: disable KMS handover (bochs-drm) to keep VGA text console active on VNC
+    kcmdline+="nomodeset "
+    kcmdline+="vga=normal "
 
     echo ""
     echo "    Kernel:  ${kernel}"
