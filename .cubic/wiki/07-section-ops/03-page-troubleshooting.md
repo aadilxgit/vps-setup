@@ -51,25 +51,23 @@ This diagram shows the recommended troubleshooting workflow using the Dry Run fe
 
 ## Installation Phase Logs
 
-During the active installation, the Debian installer fetches configuration from a temporary HTTP server.
+During the active installation, the Debian installer loads configuration directly from the offline RAMdisk initrd payload.
 
 ### Netboot Download Verification
-The `lib/download.sh` script verifies the integrity of the downloaded Debian kernel (`linux`) and initial RAM disk (`initrd.gz`) using SHA256 checksums fetched from the mirror. If checksum verification fails, a warning is issued to the console.
-Sources: [lib/download.sh:58-69](lib/download.sh#L58-L69)
+The `lib/download.sh` script verifies the integrity of the downloaded Debian kernel (`linux`) and initial RAM disk (`initrd.gz`) using SHA256 checksums fetched from the mirror. If checksum verification fails, the download fails closed and aborts the installation.
+Sources: [lib/download.sh:95-140](lib/download.sh#L95-L140)
 
-### Network and HTTP Server Logs
-If the Debian installer cannot reach the preseed file, the issue usually lies in the temporary Python HTTP server or network parameters.
-*  **Port Check**: The script checks if the `PRESEED_PORT` (default 8080) is already in use via `fuser`.
-*  **Connectivity**: The installer requires static IP parameters passed via kernel cmdline to reach the host.
-Sources: [lib/kexec_boot.sh:18-35](lib/kexec_boot.sh#L18-L35), [lib/kexec_boot.sh:82-95](lib/kexec_boot.sh#L82-L95)
+### Installer Payload & Network Logs
+If the Debian installer cannot load configuration, ensure `initrd.kexec.gz` contains `preseed.cfg`.
+*  **Connectivity**: The installer requires static IP parameters passed via kernel cmdline to reach mirror services.
+Sources: [lib/kexec_boot.sh:40-85](lib/kexec_boot.sh#L40-L85), [lib/kexec_boot.sh:87-152](lib/kexec_boot.sh#L87-L152)
 
 | Component | Log/Output Location | Purpose |
 | :--- | :--- | :--- |
-| **HTTP Server** | Console Output | Verifies if `python3 -m http.server` started successfully. |
 | **kexec Load** | Console Output | Confirms the kernel and initrd were loaded into memory. |
 | **Network Config** | `print_network_config` | Displays detected/configured IPv4, Gateway, and DNS. |
 
-Sources: [lib/kexec_boot.sh:40-45](lib/kexec_boot.sh#L40-L45), [lib/detect_network.sh:135-157](lib/detect_network.sh#L135-L157)
+Sources: [lib/kexec_boot.sh:117-131](lib/kexec_boot.sh#L117-L131), [lib/detect_network.sh:141-162](lib/detect_network.sh#L141-L162)
 
 ## Post-Installation & Security Reports
 
@@ -112,12 +110,27 @@ The sequence above illustrates the critical transition from the temporary instal
 
 | Issue | Potential Cause | Resolution |
 | :--- | :--- | :--- |
-| **kexec fails to execute** | Container virtualization (OpenVZ/LXC) | Ensure VPS uses KVM or Bare-Metal. |
+| **VPS stuck with no output after kexec** | `late_command` waits for terminal input or the post-install script fails | Fixed: `postinst.sh` runs with stdin redirected from `/dev/null` and stdout/stderr redirected to its log; its exit status is propagated so `d-i` reports critical post-install failures. |
+| **Installer prompts for weak passphrase** | Missing `partman-crypto/weak_passphrase boolean true` | Fixed: preseed template now includes this directive. |
+| **Partman recipe fails on BIOS systems** | `partman-efi/non_efi_system boolean false` blocks non-EFI installs | Fixed: changed to `boolean true` to allow both EFI and BIOS. |
+| **Installer hangs during apt operations** | `apt-get` or `needrestart` prompts for interactive input in chroot | Fixed: `DEBIAN_FRONTEND=noninteractive` and `NEEDRESTART_MODE=a` set globally in `postinst.sh`. |
+| **`set -e` aborts postinst on first error** | `set -euo pipefail` causes the entire late_command to fail on any non-zero exit | Fixed: changed to `set -uo pipefail` (no `-e`). Individual critical commands still check return codes explicitly. |
+| **EFI partition recipe missing GPT label trigger** | EFI partition lacked `$iflabel{ gpt }` and `$reusemethod{ }` | Fixed: UEFI recipe now includes `$iflabel{ gpt }` and `$reusemethod{ }` per Debian partman docs. |
+| **Empty domain causes installer prompt** | `DOMAIN=""` in config.env → `netcfg/get_domain string ` (empty) | Fixed: domain defaults to `"local"` in preseed when unset. |
+| **kexec fails to execute** | Container virtualization (OpenVZ/LXC) | Ensure VPS uses KVM, Xen, VMware, or Bare-Metal. |
+| **Installer stuck / prompt on console** | Preseed file missing from initrd payload | Verify `initrd.kexec.gz` payload generation in `lib/kexec_boot.sh`. |
 | **SSH timeout after kexec** | Incorrect network parameters in `config.env` | Use VNC/IPMI console to check installer network status. |
 | **Dropbear not prompting** | Initramfs network driver missing or config error | Check `__INITRAMFS_IP__` in `lib/generate_postinst.sh`. |
-| **LUKS Unlock fails** | Keyboard layout mismatch or typo during setup | Use LUKS header backup to recover if passphrase is lost. |
+| **LUKS Unlock fails** | Keyboard layout mismatch or typo during setup | Use LUKS header backup (`/root/luks-header-backup.img`) to recover. |
 
 Sources: [setup.sh:105-115](setup.sh#L105-L115), [lib/generate_postinst.sh:33-35](lib/generate_postinst.sh#L33-L35), [README.md:129-137](README.md#L129-L137)
+
+## Debugging Tips
+
+1. **DEBCONF_DEBUG=5** is enabled in the kexec kernel cmdline. This produces detailed installer debug output visible on the VPS console (VNC/IPMI) or serial console.
+2. **Alt+F2 / Alt+F3** during installation opens a shell inside the Debian installer environment. Check `/var/log/syslog` for installer errors.
+3. **Post-install log**: After installation, check `/var/log/vps-postinst.log` for the complete output of the hardening script.
+4. **Dry run**: Always run `./setup.sh --dry-run` first and inspect `.work/preseed.cfg` and `.work/postinst.sh` for correct token substitution before live execution.
 
 ## Conclusion
 Troubleshooting the `vps-setup` process relies on a combination of pre-installation "Dry Runs" and post-installation report verification. Because the `kexec` process is destructive and replaces the operating system in memory, administrators should always verify the network and disk auto-detection output provided in the `Installation Summary` block before typing `YES` to proceed.

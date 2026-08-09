@@ -31,8 +31,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${SCRIPT_DIR}/.work"
 VERSION="1.0.0"
-PRESEED_PORT="${PRESEED_PORT:-8080}"
-export PRESEED_PORT
 
 # Colors for output
 RED='\033[0;31m'
@@ -72,10 +70,6 @@ banner() {
 }
 
 cleanup() {
-    # Kill any HTTP server we started
-    if [[ -n "${HTTP_SERVER_PID:-}" ]]; then
-        kill "${HTTP_SERVER_PID}" 2>/dev/null || true
-    fi
     # Securely shred temporary work files (preseed, postinst, keys)
     if [[ "${DRY_RUN:-false}" != true ]] && [[ -d "${WORK_DIR}" ]]; then
         shred -u "${WORK_DIR}"/* 2>/dev/null || rm -rf "${WORK_DIR}"
@@ -167,9 +161,83 @@ preflight_checks() {
 # ─────────────────────────────────────────────────────────────────────────────
 # Load and Validate Configuration
 # ─────────────────────────────────────────────────────────────────────────────
+is_valid_ipv6() {
+    local ip="$1"
+    [[ -z "$ip" ]] && return 1
+    [[ "$ip" =~ [^0-9a-fA-F:] ]] && return 1
+    if [[ "$ip" == *"::"* ]]; then
+        local rest="${ip#*::}"
+        if [[ "$rest" == *"::"* ]]; then return 1; fi
+    fi
+    local colons="${ip//[^:]}"
+    if [[ "$ip" != "::" ]] && (( ${#colons} < 2 || ${#colons} > 7 )); then return 1; fi
+    return 0
+}
+
+is_valid_hostname() {
+    local host="$1"
+    (( ${#host} < 1 || ${#host} > 253 )) && return 1
+    if [[ "$host" == \[*\] ]]; then
+        local raw_ipv6="${host:1:-1}"
+        is_valid_ipv6 "$raw_ipv6"
+        return $?
+    fi
+    if [[ "$host" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        local octs
+        IFS="." read -r -a octs <<< "$host"
+        local o
+        for o in "${octs[@]}"; do
+            if (( 10#$o > 255 )); then return 1; fi
+        done
+        return 0
+    fi
+    if [[ "$host" =~ ^[.-]|[\.-]$|\.\. ]]; then return 1; fi
+    local labels
+    IFS="." read -r -a labels <<< "$host"
+    local l
+    for l in "${labels[@]}"; do
+        if ! [[ "$l" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+is_valid_mirror_url() {
+    local mirror="$1"
+    if [[ "${mirror}" != https://* ]] || [[ "${mirror}" =~ [[:space:]\?#@] ]]; then
+        return 1
+    fi
+    local m_clean="${mirror#https://}"
+    local m_hp="${m_clean%%/*}"
+    local m_host="" m_port=""
+    if [[ -z "${m_hp}" ]]; then return 1; fi
+
+    if [[ "${m_hp}" == \[*\]* ]]; then
+        m_host="${m_hp%%\]*}]"
+        local m_rest="${m_hp#*\]}"
+        if [[ -n "${m_rest}" ]]; then
+            if ! [[ "${m_rest}" == :* ]]; then return 1; fi
+            m_port="${m_rest#:}"
+        fi
+    else
+        m_host="${m_hp%%:*}"
+        if [[ "${m_hp}" == *":"* ]]; then
+            m_port="${m_hp#*:}"
+        fi
+    fi
+
+    if [[ -n "${m_port}" ]]; then
+        if ! [[ "${m_port}" =~ ^[0-9]{1,5}$ ]]; then return 1; fi
+        local p_val=$(( 10#${m_port} ))
+        if (( p_val < 1 || p_val > 65535 )); then return 1; fi
+    fi
+
+    is_valid_hostname "${m_host}"
+}
+
 load_config() {
     log_step "Loading Configuration"
-
     local config_file="${SCRIPT_DIR}/config.env"
 
     if [[ ! -f "${config_file}" ]]; then
@@ -204,11 +272,6 @@ load_config() {
         errors=$((errors + 1))
     fi
 
-    if (( errors > 0 )); then
-        log_error "${errors} configuration error(s) found. Please edit config.env."
-        exit 1
-    fi
-
     # Set defaults for optional fields
     INSTALL_ROLE="${INSTALL_ROLE:-standard}"
     HOSTNAME="${HOSTNAME:-vps}"
@@ -217,9 +280,24 @@ load_config() {
     LOCALE="${LOCALE:-en_US.UTF-8}"
     KEYMAP="${KEYMAP:-us}"
     DEBIAN_RELEASE="${DEBIAN_RELEASE:-trixie}"
-    DEBIAN_MIRROR="${DEBIAN_MIRROR:-http://deb.debian.org/debian}"
     EXTRA_PACKAGES="${EXTRA_PACKAGES:-}"
 
+    # Auto-upgrade known legacy HTTP Debian mirrors to HTTPS
+    if [[ "${DEBIAN_MIRROR:-}" == "http://deb.debian.org/debian" ]]; then
+        DEBIAN_MIRROR="https://deb.debian.org/debian"
+    elif [[ "${DEBIAN_MIRROR:-}" == "http://ftp.debian.org/debian" ]]; then
+        DEBIAN_MIRROR="https://ftp.debian.org/debian"
+    fi
+    DEBIAN_MIRROR="${DEBIAN_MIRROR:-https://deb.debian.org/debian}"
+    if ! is_valid_mirror_url "${DEBIAN_MIRROR}"; then
+        log_error "DEBIAN_MIRROR must be a valid HTTPS URL with a valid hostname authority (got '${DEBIAN_MIRROR}')."
+        errors=$((errors + 1))
+    fi
+
+    if (( errors > 0 )); then
+        log_error "${errors} configuration error(s) found. Please edit config.env."
+        exit 1
+    fi
     export USERNAME SSH_PORT SSH_PUBKEY INSTALL_ROLE
     export HOSTNAME DOMAIN TIMEZONE LOCALE KEYMAP
     export DEBIAN_RELEASE DEBIAN_MIRROR EXTRA_PACKAGES
@@ -468,9 +546,6 @@ main() {
 
     # === Step 7: Generate preseed ===
     log_step "Generating Preseed Configuration"
-    # The preseed server address is our current IP and PRESEED_PORT
-    PRESEED_SERVER="${IPV4_ADDRESS}:${PRESEED_PORT}"
-    export PRESEED_SERVER
     generate_preseed
 
     # === Step 8: Generate post-install script ===
@@ -486,9 +561,8 @@ main() {
     # === Step 9: Summary and confirm ===
     display_summary
 
-    # === Step 10: Start HTTP server and kexec ===
+    # === Step 10: Start Installation ===
     log_step "Starting Installation"
-    start_preseed_server
     kexec_boot
 }
 

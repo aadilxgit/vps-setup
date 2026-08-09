@@ -20,10 +20,11 @@ detect_network() {
     # --- Interface ---
     detected_iface=$(ip -o route show default 2>/dev/null | awk '{print $5}' | head -n1)
     if [[ -z "${detected_iface}" ]]; then
-        # Fallback: first non-lo interface that is UP
-        detected_iface=$(ip -o link show up 2>/dev/null | awk -F': ' '{print $2}' | grep -v '^lo$' | head -n1)
+        # Fallback: first non-virtual physical interface that is UP
+        detected_iface=$(ip -o link show up 2>/dev/null | awk -F': ' '{print $2}' | grep -vE '^(lo|docker|veth|br-|tun|tap|virbr|wg|cni|flannel|tailscale)' | head -n1)
     fi
-
+    # Strip @peer suffix (e.g. eth0@if12 → eth0) that appears in veth/container envs
+    detected_iface="${detected_iface%%@*}"
     # --- IPv4 ---
     if [[ -n "${detected_iface}" ]]; then
         local ipv4_line
@@ -53,10 +54,15 @@ detect_network() {
 
     # --- DNS ---
     if [[ -f /etc/resolv.conf ]]; then
-        detected_dns=$(grep -E '^nameserver' /etc/resolv.conf 2>/dev/null \
-            | awk '{print $2}' | tr '\n' ' ' | sed 's/ *$//')
+        local raw_dns clean_dns=""
+        raw_dns=$(grep -E '^nameserver' /etc/resolv.conf 2>/dev/null | awk '{print $2}')
+        for ns in ${raw_dns}; do
+            if [[ "${ns}" != 127.* && "${ns}" != "::1" ]]; then
+                clean_dns+="${ns} "
+            fi
+        done
+        detected_dns=$(echo "${clean_dns}" | sed 's/ *$//')
     fi
-
     # --- Apply: config.env overrides take precedence ---
     INTERFACE="${INTERFACE:-${detected_iface:-}}"
     IPV4_ADDRESS="${IPV4_ADDRESS:-${detected_ipv4:-}}"
@@ -66,8 +72,10 @@ detect_network() {
     IPV6_ADDRESS="${IPV6_ADDRESS:-${detected_ipv6:-}}"
     IPV6_PREFIX="${IPV6_PREFIX:-${detected_ipv6_prefix:-}}"
     IPV6_GATEWAY="${IPV6_GATEWAY:-${detected_ipv6_gateway:-}}"
-    DNS_SERVERS="${DNS_SERVERS:-${detected_dns:-1.1.1.1 1.0.0.1}}"
-
+    DNS_SERVERS="${DNS_SERVERS:-${detected_dns:-1.1.1.1 1.0.0.1 8.8.8.8}}"
+    if [[ -z "${DNS_SERVERS// /}" ]]; then
+        DNS_SERVERS="1.1.1.1 1.0.0.1 8.8.8.8"
+    fi
     # If user provided netmask as CIDR number in IPV4_NETMASK field, convert first
     if [[ "${IPV4_NETMASK}" =~ ^[0-9]+$ ]] && (( IPV4_NETMASK <= 32 )); then
         IPV4_CIDR="${IPV4_NETMASK}"

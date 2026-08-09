@@ -61,17 +61,20 @@ detect_disk() {
 
         local parent_disk_name
         parent_disk_name=$(echo "${parent_disk_names}" | head -n1)
+        if [[ -z "${parent_disk_name}" ]]; then
+            parent_disk_name=$(lsblk -no PKNAME "${root_device}" 2>/dev/null | head -n1)
+        fi
 
         if [[ -n "${parent_disk_name}" ]]; then
-            detected_disk="/dev/${parent_disk_name}"
-        elif [[ "${root_device}" == /dev/nvme* ]]; then
-            # NVMe: /dev/nvme0n1p1 -> /dev/nvme0n1
+            detected_disk="/dev/${parent_disk_name#"/dev/"}"
+        elif [[ "${root_device}" == /dev/nvme* || "${root_device}" == /dev/mmcblk* ]]; then
+            # NVMe / MMC: /dev/nvme0n1p1 -> /dev/nvme0n1
             # shellcheck disable=SC2001
-            detected_disk=$(echo "${root_device}" | sed 's/p[0-9]*$//')
+            detected_disk=$(echo "${root_device}" | sed -E 's/p[0-9]+$//')
         else
             # Standard: /dev/sda1 -> /dev/sda, /dev/vda1 -> /dev/vda
             # shellcheck disable=SC2001
-            detected_disk=$(echo "${root_device}" | sed 's/[0-9]*$//')
+            detected_disk=$(echo "${root_device}" | sed -E 's/[0-9]+$//')
         fi
     fi
 

@@ -34,7 +34,7 @@ flowchart TD
     E --> F[sed Template Substitution]
     F --> G[Save postinst.sh to .work/]
     G --> H[kexec_boot.sh]
-    H --> I[Start HTTP Server]
+    H --> I[Inject into initrd payload]
     I --> J[kexec into Installer]
 ```
 
@@ -54,7 +54,7 @@ One of the most sensitive tasks of the generation module is handling the `LUKS_P
 
 | Security Element | Source | Purpose |
 | :--- | :--- | :--- |
-| `INSTALL_TOKEN` | `openssl rand -hex 16` | Unique subpath for secret transport over HTTP. |
+| `INSTALL_TOKEN` | `openssl rand -hex 16` | Unique subpath for secret transport in initrd payload. |
 | `TEMP_LUKS_KEY` | `openssl rand -hex 32` | Key used for initial disk encryption and secret encryption. |
 | `.secret_keys.enc` | `openssl enc -aes-256-cbc` | AES-encrypted user passphrase payload. |
 
@@ -75,20 +75,18 @@ The generation script maps `config.env` variables to placeholders within the tem
 
 ## Staging and Delivery
 
-Once generated, the files are staged in a restricted workspace for HTTP delivery to the Debian installer. Sources: [lib/kexec\_boot.sh:17-20](lib/kexec\_boot.sh#L17-L20)
+Once generated, `preseed.cfg`, `postinst.sh`, and the encrypted secret payload are injected directly into the `initrd.kexec.gz` RAMdisk payload for offline access by the Debian installer. Sources: [lib/kexec_boot.sh:40-85](lib/kexec_boot.sh#L40-L85)
 
 ```mermaid
 sequenceDiagram
     participant Host as "Running VPS (Host)"
-    participant HTTP as "Python HTTP Server"
+    participant Initrd as "Initrd RAM Payload"
     participant Installer as "Debian Installer (kexec)"
     
     Host->>Host: Generate postinst.sh (Mode 700)
-    Host->>HTTP: Serve .work/ on PRESEED_PORT
-    Installer->>HTTP: GET /postinst.sh
-    HTTP-->>Installer: Script Content
-    Installer->>HTTP: GET /<TOKEN>/.secret_keys.enc
-    HTTP-->>Installer: Encrypted Secrets
+    Host->>Initrd: Inject preseed.cfg, postinst.sh & secrets into initrd.kexec.gz
+    Host->>Installer: kexec boot into Installer
+    Installer->>Initrd: Read /postinst.sh & /<TOKEN>/.secret_keys.enc from RAM
     Installer->>Installer: Decrypt secrets with TEMP_LUKS_KEY
     Host->>Host: cleanup() (shreds .work/ directory)
 ```

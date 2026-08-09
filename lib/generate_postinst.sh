@@ -76,7 +76,6 @@ generate_postinst() {
         -e "s|__TIMEZONE__|$(sed_escape "${TIMEZONE}")|g" \
         -e "s|__INITRAMFS_IP__|$(sed_escape "${initramfs_ip}")|g" \
         -e "s|__DISK__|$(sed_escape "${DISK}")|g" \
-        -e "s|__PRESEED_SERVER__|$(sed_escape "${PRESEED_SERVER}")|g" \
         -e "s|__INSTALL_TOKEN__|$(sed_escape "${INSTALL_TOKEN}")|g" \
         -e "s|__TEMP_LUKS_KEY__|$(sed_escape "${TEMP_LUKS_KEY}")|g" \
         -e "s|__LUKS_HEADER_BACKUP_PATH__|$(sed_escape "${header_backup_path}")|g" \
