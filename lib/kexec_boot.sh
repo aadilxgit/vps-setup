@@ -107,9 +107,9 @@ kexec_boot() {
     kcmdline+="keyboard-configuration/xkb-keymap=${KEYMAP} "
     kcmdline+="locale=${LOCALE} "
     kcmdline+="keymap=${KEYMAP} "
-    # Console: support both VGA console and serial console for headless VPS
-    kcmdline+="console=tty0 "
+    # Console: support both serial and VGA/VNC console (tty0 MUST be last so VNC is primary)
     kcmdline+="console=ttyS0,115200n8 "
+    kcmdline+="console=tty0 "
     # Prevent installer from trying DHCP (wastes time, can override static config)
     kcmdline+="netcfg/use_autoconfig=false "
     kcmdline+="hw-detect/load_firmware=true "
