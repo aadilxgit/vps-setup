@@ -28,9 +28,10 @@ d-i hw-detect/load_firmware boolean true
 
 ### --- Mirror Configuration --------------------------------------------------
 d-i mirror/country string manual
-d-i mirror/http/hostname string __DEBIAN_MIRROR_HOST__
-d-i mirror/http/directory string __DEBIAN_MIRROR_DIR__
-d-i mirror/http/proxy string
+d-i mirror/protocol string __DEBIAN_MIRROR_PROTO__
+d-i mirror/__DEBIAN_MIRROR_PROTO__/hostname string __DEBIAN_MIRROR_HOST__
+d-i mirror/__DEBIAN_MIRROR_PROTO__/directory string __DEBIAN_MIRROR_DIR__
+d-i mirror/__DEBIAN_MIRROR_PROTO__/proxy string
 d-i mirror/suite string __DEBIAN_RELEASE__
 
 ### --- Clock and Timezone ----------------------------------------------------

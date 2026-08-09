@@ -1,5 +1,5 @@
 ---
-title: "Kexec & Temporary HTTP Server"
+title: "Kexec & Offline Initrd Injection"
 wiki_page_id: "page-kexec-boot"
 ---
 
@@ -83,7 +83,7 @@ The `preseed/late_command` is the most critical part of the installation flow. I
 
 1. **stdin from `/dev/null`**: Prevents any command from blocking on TTY input.
 2. **stdout/stderr to log**: All output captured in `/var/log/vps-postinst.log`.
-3. **`|| true` suffix**: Prevents non-zero exit codes from stalling the Debian installer.
+3. **Exit status propagation**: Captures and exits with in-target's status so post-install failures abort the installer rather than being silently ignored.
 4. **`DEBIAN_FRONTEND=noninteractive`**: Set globally in `postinst.sh` to prevent apt prompts.
 5. **`NEEDRESTART_MODE=a`**: Auto-restart services without prompting.
 6. **No `set -e`**: Individual commands check their own return codes; global errexit is disabled to prevent cascading failures.
@@ -120,10 +120,6 @@ A trap is established on the `EXIT` signal to ensure that if the script fails be
 
 ```bash
 cleanup() {
-    # Kill any background processes we started
-    if [[ -n "${HTTP_SERVER_PID:-}" ]]; then
-        kill "${HTTP_SERVER_PID}" 2>/dev/null || true
-    fi
     # Securely shred temporary work files
     if [[ "${DRY_RUN:-false}" != true ]] && [[ -d "${WORK_DIR}" ]]; then
         shred -u "${WORK_DIR}"/* 2>/dev/null || rm -rf "${WORK_DIR}"

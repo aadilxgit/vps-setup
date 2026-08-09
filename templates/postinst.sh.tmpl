@@ -68,18 +68,12 @@ rm -f /tmp/.real.key /tmp/.secret_keys.enc 2>/dev/null || true
 printf "%s" "__TEMP_LUKS_KEY__" > /tmp/.temp.key
 chmod 600 /tmp/.temp.key
 
-# Read encrypted secret payload from RAM file or HTTP fallback
+# Read encrypted secret payload from RAM file
 if [[ -f "/tmp/__INSTALL_TOKEN__/.secret_keys.enc" ]]; then
     chmod 600 "/tmp/__INSTALL_TOKEN__/.secret_keys.enc"
     TEMP_LUKS_KEY="__TEMP_LUKS_KEY__" openssl enc -d -aes-256-cbc -pbkdf2 -pass env:TEMP_LUKS_KEY -in "/tmp/__INSTALL_TOKEN__/.secret_keys.enc" -out /tmp/.real.key 2>/dev/null || true
     chmod 600 /tmp/.real.key 2>/dev/null || true
     rm -rf "/tmp/__INSTALL_TOKEN__"
-elif wget -q -O /tmp/.secret_keys.enc "http://__PRESEED_SERVER__/__INSTALL_TOKEN__/.secret_keys.enc" 2>/dev/null && [[ -f /tmp/.secret_keys.enc ]]; then
-    chmod 600 /tmp/.secret_keys.enc
-    # Decrypt AES-256-CBC payload directly into key file without shell code execution
-    TEMP_LUKS_KEY="__TEMP_LUKS_KEY__" openssl enc -d -aes-256-cbc -pbkdf2 -pass env:TEMP_LUKS_KEY -in /tmp/.secret_keys.enc -out /tmp/.real.key 2>/dev/null || true
-    chmod 600 /tmp/.real.key 2>/dev/null || true
-    rm -f /tmp/.secret_keys.enc
 fi
 
 # Verify non-empty key file (-s test)

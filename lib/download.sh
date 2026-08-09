@@ -11,8 +11,14 @@ set -euo pipefail
 download_netboot_files() {
     local work_dir="${1:-.}"
     local clean_mirror="${DEBIAN_MIRROR%/}"
+    if [[ "${clean_mirror}" == "http://deb.debian.org/debian" ]]; then
+        clean_mirror="https://deb.debian.org/debian"
+    elif [[ "${clean_mirror}" == "http://ftp.debian.org/debian" ]]; then
+        clean_mirror="https://ftp.debian.org/debian"
+    fi
+
     if [[ -n "${clean_mirror}" && "${clean_mirror}" != https://* ]]; then
-        echo "ERROR: DEBIAN_MIRROR must use HTTPS to prevent on-path artifact substitution." >&2
+        echo "ERROR: DEBIAN_MIRROR must use HTTPS." >&2
         return 1
     fi
     local release="${DEBIAN_RELEASE:-trixie}"
@@ -52,7 +58,7 @@ download_netboot_files() {
 
             echo "    Attempting source: ${base_url}..."
 
-            if wget -q --show-progress -O "${work_dir}/linux" "${kernel_url}"; then
+            if wget --https-only -q --show-progress -O "${work_dir}/linux" "${kernel_url}"; then
                 local k_size
                 k_size=$(stat -c%s "${work_dir}/linux" 2>/dev/null || echo 0)
                 if (( k_size >= 1000000 )); then
@@ -62,7 +68,7 @@ download_netboot_files() {
             fi
 
             if [[ "${kernel_success}" == true ]]; then
-                if wget -q --show-progress -O "${work_dir}/initrd.gz" "${initrd_url}"; then
+                if wget --https-only -q --show-progress -O "${work_dir}/initrd.gz" "${initrd_url}"; then
                     local i_size
                     i_size=$(stat -c%s "${work_dir}/initrd.gz" 2>/dev/null || echo 0)
                     if (( i_size >= 1000000 )); then
@@ -97,7 +103,7 @@ download_netboot_files() {
     )
 
     for s_url in "${candidate_sums[@]}"; do
-        if wget -q -O "${work_dir}/SHA256SUMS.raw" "${s_url}" 2>/dev/null; then
+        if wget --https-only -q -O "${work_dir}/SHA256SUMS.raw" "${s_url}" 2>/dev/null; then
             echo "    Verifying SHA256 checksums (from ${s_url})..."
             # Extract ONLY the two entries we need — linux and initrd.gz
             # The raw file contains hundreds of PXE/GRUB entries under the same path;

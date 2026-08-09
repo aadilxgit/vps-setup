@@ -33,7 +33,11 @@ generate_preseed() {
     # Generate temporary random LUKS key for automated installation
     TEMP_LUKS_KEY="${TEMP_LUKS_KEY:-$(openssl rand -hex 32)}"
     export TEMP_LUKS_KEY
-    # Parse Debian mirror host and directory from DEBIAN_MIRROR URL
+    # Parse Debian mirror protocol, host and directory from DEBIAN_MIRROR URL
+    local mirror_proto="http"
+    if [[ "${DEBIAN_MIRROR}" == https://* ]]; then
+        mirror_proto="https"
+    fi
     local mirror_clean="${DEBIAN_MIRROR#*://}"
     local mirror_host="${mirror_clean%%/*}"
     local mirror_dir=""
@@ -93,6 +97,7 @@ generate_preseed() {
         -e "s|__IPV4_GATEWAY__|$(sed_escape "${IPV4_GATEWAY}")|g" \
         -e "s|__PRIMARY_DNS__|$(sed_escape "${primary_dns}")|g" \
         -e "s|__DNS_SERVERS__|$(sed_escape "${DNS_SERVERS}")|g" \
+        -e "s|__DEBIAN_MIRROR_PROTO__|$(sed_escape "${mirror_proto}")|g" \
         -e "s|__DEBIAN_MIRROR_HOST__|$(sed_escape "${mirror_host}")|g" \
         -e "s|__DEBIAN_MIRROR_DIR__|$(sed_escape "${mirror_dir}")|g" \
         -e "s|__DEBIAN_RELEASE__|$(sed_escape "${DEBIAN_RELEASE}")|g" \
@@ -100,7 +105,6 @@ generate_preseed() {
         -e "s|__EXTRA_PACKAGES__|$(sed_escape "${EXTRA_PACKAGES}")|g" \
         -e "s|__SSH_PUBKEY__|$(sed_escape "${SSH_PUBKEY}")|g" \
         -e "s|__VG_NAME__|$(sed_escape "${vg_name}")|g" \
-        -e "s|__PRESEED_SERVER__|$(sed_escape "${PRESEED_SERVER}")|g" \
         -e "s|__INSTALL_TOKEN__|$(sed_escape "${INSTALL_TOKEN}")|g" \
         -e "s|__PARTMAN_RECIPE__|$(sed_escape "${partman_recipe}")|g" \
         "${template_file}" > "${output_file}"

@@ -25,16 +25,16 @@ Sources: [README.md:1-15](README.md#L1-L15), [lib/download.sh:7-10](lib/download
 
 ## Download Architecture and Multi-Mirror Failover
 
-The download logic is encapsulated within `lib/download.sh` and is orchestrated by `setup.sh`. To guarantee 100% download success even if a specific mirror is unreachable, slow, or returning HTTP errors, `download_netboot_files` implements automated multi-mirror failover and path resolution across primary and fallback mirrors.
+The download logic is encapsulated within `lib/download.sh` and is orchestrated by `setup.sh`. To improve download resilience when a specific mirror is unreachable, slow, or returning errors, `download_netboot_files` implements automated multi-mirror failover and path resolution across primary and fallback mirrors.
 
 ### Candidate Mirror & Path Resolution
 The script iterates across candidate mirrors and relative netboot paths until valid artifacts (verified size > 1MB) are retrieved:
 
 1. **Mirrors**:
-   - `DEBIAN_MIRROR` (configured in `config.env`, e.g. `http://deb.debian.org/debian`)
-   - `http://deb.debian.org/debian` (official global HTTP endpoint)
+   - `DEBIAN_MIRROR` (configured in `config.env`, e.g. `https://deb.debian.org/debian`)
+   - `https://deb.debian.org/debian` (official global HTTPS endpoint)
    - `https://cdn-fastly.deb.debian.org/debian` (Fastly CDN mirror)
-   - `http://ftp.debian.org/debian` (official primary FTP mirror)
+   - `https://ftp.debian.org/debian` (official primary HTTPS mirror)
 
 2. **Relative Netboot Paths**:
    - `dists/${release}/main/installer-amd64/current/images/netboot/debian-installer/amd64`
@@ -104,7 +104,7 @@ Sources: [lib/download.sh:14-17](lib/download.sh#L14-L17)
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
 | `DEBIAN_RELEASE` | `trixie` | The version of Debian to download (e.g., trixie, bookworm). |
-| `DEBIAN_MIRROR` | `http://deb.debian.org/debian` | The base URL of the Debian APT mirror. |
+| `DEBIAN_MIRROR` | `https://deb.debian.org/debian` | The base URL of the Debian APT mirror. |
 | `WORK_DIR` | `.work` | The directory where files are stored (defaulting to a subdirectory of the script path). |
 
 Sources: [setup.sh:159-160](setup.sh#L159-L160), [setup.sh:32](setup.sh#L32)

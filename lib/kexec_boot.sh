@@ -2,48 +2,12 @@
 # =============================================================================
 # lib/kexec_boot.sh — Boot into Debian installer via kexec
 # =============================================================================
-# Starts a temporary HTTP server to serve preseed + postinst, then uses kexec
-# to replace the running kernel with the Debian installer.
+# Uses kexec to replace the running kernel with the Debian installer.
 #
 # ⚠️  THIS IS THE POINT OF NO RETURN — the running system is replaced.
 # =============================================================================
 
 set -euo pipefail
-
-start_preseed_server() {
-    # shellcheck disable=SC2153
-    local serve_dir="${WORK_DIR}"
-    local port="${PRESEED_PORT:-8080}"
-
-    echo "==> Starting temporary HTTP server on port ${port}..."
-    echo "    Serving: ${serve_dir}"
-
-    # Refuse to proceed if the port is already in use
-    if fuser "${port}/tcp" &>/dev/null; then
-        echo "ERROR: Port ${port}/tcp is already in use. Free it and retry." >&2
-        return 1
-    fi
-
-    # Start Python HTTP server without changing caller directory and assign PID globally for cleanup trap
-    nohup python3 -m http.server "${port}" --directory "${serve_dir}" --bind 0.0.0.0 &>/dev/null &
-    HTTP_SERVER_PID=$!
-    export HTTP_SERVER_PID
-
-    # Verify it started
-    sleep 1
-    if ! kill -0 "${HTTP_SERVER_PID}" 2>/dev/null; then
-        echo "ERROR: Failed to start HTTP server." >&2
-        return 1
-    fi
-
-    echo "    ✓ HTTP server running (PID: ${HTTP_SERVER_PID})"
-    echo "    Preseed URL: http://${IPV4_ADDRESS}:${port}/preseed.cfg"
-    echo "    Postinst URL: http://${IPV4_ADDRESS}:${port}/postinst.sh"
-    echo ""
-
-    PRESEED_URL="http://${IPV4_ADDRESS}:${port}/preseed.cfg"
-    export PRESEED_URL
-}
 
 kexec_boot() {
     local work_dir="${WORK_DIR}"

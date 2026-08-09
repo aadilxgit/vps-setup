@@ -96,7 +96,7 @@ The script will:
 5. Generate preseed and post-install scripts
 6. Inject all configurations + encrypted secrets into an offline initrd payload
 7. Require typing `YES` to confirm OS disk destruction
-8. `kexec` into the Debian installer (self-contained, no HTTP server needed)
+8. `kexec` into the Debian installer (offline RAMdisk initrd payload carries preseed configuration and secrets; no local HTTP server required)
 
 ### 5. After installation
 
@@ -157,7 +157,7 @@ vps-setup/
 | `LOCALE` | | `en_US.UTF-8` | System locale |
 | `KEYMAP` | | `us` | Keyboard layout |
 | `DEBIAN_RELEASE` | | `trixie` | Debian release name |
-| `DEBIAN_MIRROR` | | `https://deb.debian.org/debian` | APT mirror (must be HTTPS) |
+| `DEBIAN_MIRROR` | | `https://deb.debian.org/debian` | APT mirror (must be HTTPS; preseeded via `d-i mirror/protocol string https`) |
 | `ALLOW_SSH_FORWARDING` | | `false` | Enable SSH TCP port forwarding (`true`/`false`) |
 | `STORAGE_AUTO_MOUNT` | | `false` | Enable secondary disk auto-mount in storage-vps role (`true`/`false`) |
 | `DISK` | | *(auto-detect)* | Target OS disk (auto-detects root disk; set only to override) |

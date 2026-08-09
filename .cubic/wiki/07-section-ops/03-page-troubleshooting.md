@@ -51,21 +51,19 @@ This diagram shows the recommended troubleshooting workflow using the Dry Run fe
 
 ## Installation Phase Logs
 
-During the active installation, the Debian installer fetches configuration from a temporary HTTP server.
+During the active installation, the Debian installer loads configuration directly from the offline RAMdisk initrd payload.
 
 ### Netboot Download Verification
 The `lib/download.sh` script verifies the integrity of the downloaded Debian kernel (`linux`) and initial RAM disk (`initrd.gz`) using SHA256 checksums fetched from the mirror. If checksum verification fails, a warning is issued to the console.
 Sources: [lib/download.sh:58-69](lib/download.sh#L58-L69)
 
-### Network and HTTP Server Logs
-If the Debian installer cannot reach the preseed file, the issue usually lies in the temporary Python HTTP server or network parameters.
-*  **Port Check**: The script checks if the `PRESEED_PORT` (default 8080) is already in use via `fuser`.
-*  **Connectivity**: The installer requires static IP parameters passed via kernel cmdline to reach the host.
-Sources: [lib/kexec_boot.sh:18-35](lib/kexec_boot.sh#L18-L35), [lib/kexec_boot.sh:82-95](lib/kexec_boot.sh#L82-L95)
+### Installer Payload & Network Logs
+If the Debian installer cannot load configuration, ensure `initrd.kexec.gz` contains `preseed.cfg`.
+*  **Connectivity**: The installer requires static IP parameters passed via kernel cmdline to reach mirror services.
+Sources: [lib/kexec_boot.sh:82-95](lib/kexec_boot.sh#L82-L95)
 
 | Component | Log/Output Location | Purpose |
 | :--- | :--- | :--- |
-| **HTTP Server** | Console Output | Verifies if `python3 -m http.server` started successfully. |
 | **kexec Load** | Console Output | Confirms the kernel and initrd were loaded into memory. |
 | **Network Config** | `print_network_config` | Displays detected/configured IPv4, Gateway, and DNS. |
 
@@ -112,7 +110,7 @@ The sequence above illustrates the critical transition from the temporary instal
 
 | Issue | Potential Cause | Resolution |
 | :--- | :--- | :--- |
-| **VPS stuck with no output after kexec** | `late_command` hangs due to unredirected stdin/stdout in `in-target` | Fixed: `in-target` now redirects stdin from `/dev/null` and stdout/stderr to log file. The `|| true` suffix prevents exit code 1 from stalling `d-i`. |
+| **VPS stuck with no output after kexec** | `late_command` waits for terminal input or the post-install script fails | Fixed: `postinst.sh` runs with stdin redirected from `/dev/null` and stdout/stderr redirected to its log; its exit status is propagated so `d-i` reports critical post-install failures. |
 | **Installer prompts for weak passphrase** | Missing `partman-crypto/weak_passphrase boolean true` | Fixed: preseed template now includes this directive. |
 | **Partman recipe fails on BIOS systems** | `partman-efi/non_efi_system boolean false` blocks non-EFI installs | Fixed: changed to `boolean true` to allow both EFI and BIOS. |
 | **Installer hangs during apt operations** | `apt-get` or `needrestart` prompts for interactive input in chroot | Fixed: `DEBIAN_FRONTEND=noninteractive` and `NEEDRESTART_MODE=a` set globally in `postinst.sh`. |

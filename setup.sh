@@ -31,8 +31,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${SCRIPT_DIR}/.work"
 VERSION="1.0.0"
-PRESEED_PORT="${PRESEED_PORT:-8080}"
-export PRESEED_PORT
 
 # Colors for output
 RED='\033[0;31m'
@@ -72,10 +70,6 @@ banner() {
 }
 
 cleanup() {
-    # Kill any HTTP server we started
-    if [[ -n "${HTTP_SERVER_PID:-}" ]]; then
-        kill "${HTTP_SERVER_PID}" 2>/dev/null || true
-    fi
     # Securely shred temporary work files (preseed, postinst, keys)
     if [[ "${DRY_RUN:-false}" != true ]] && [[ -d "${WORK_DIR}" ]]; then
         shred -u "${WORK_DIR}"/* 2>/dev/null || rm -rf "${WORK_DIR}"
@@ -217,7 +211,7 @@ load_config() {
     LOCALE="${LOCALE:-en_US.UTF-8}"
     KEYMAP="${KEYMAP:-us}"
     DEBIAN_RELEASE="${DEBIAN_RELEASE:-trixie}"
-    DEBIAN_MIRROR="${DEBIAN_MIRROR:-http://deb.debian.org/debian}"
+    DEBIAN_MIRROR="${DEBIAN_MIRROR:-https://deb.debian.org/debian}"
     EXTRA_PACKAGES="${EXTRA_PACKAGES:-}"
 
     export USERNAME SSH_PORT SSH_PUBKEY INSTALL_ROLE
@@ -468,9 +462,6 @@ main() {
 
     # === Step 7: Generate preseed ===
     log_step "Generating Preseed Configuration"
-    # The preseed server address is our current IP and PRESEED_PORT
-    PRESEED_SERVER="${IPV4_ADDRESS}:${PRESEED_PORT}"
-    export PRESEED_SERVER
     generate_preseed
 
     # === Step 8: Generate post-install script ===
@@ -486,9 +477,8 @@ main() {
     # === Step 9: Summary and confirm ===
     display_summary
 
-    # === Step 10: Start HTTP server and kexec ===
+    # === Step 10: Start Installation ===
     log_step "Starting Installation"
-    start_preseed_server
     kexec_boot
 }
 
