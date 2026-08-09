@@ -83,7 +83,7 @@ Sources: [lib/download.sh:61-112](lib/download.sh#L61-L112), [setup.sh:458-471](
 To prevent corrupt installations, the script performs multiple checks:
 1.  **Dependency Check**: It ensures `wget` is installed, attempting to install it via `apt-get` if missing.
 2.  **Size Validation**: Both the kernel and `initrd.gz` must exceed 1,000,000 bytes. If a file is smaller, the download is considered failed.
-3.  **Integrity Verification**: The script downloads `SHA256SUMS` from the mirror, filters for exactly `linux` and `initrd.gz` entries, requires both entries to be present, and executes `sha256sum -c`.
+3.  **Integrity Verification**: The script downloads `SHA256SUMS` from the mirror, filters for exactly `linux` and `initrd.gz` entries, requires both entries (`grep -q ' linux$'` and `grep -q ' initrd\.gz$'`) to be present, and executes `sha256sum -c`.
 
 Sources: [lib/download.sh:28-32](lib/download.sh#L28-L32), [lib/download.sh:61-81](lib/download.sh#L61-L81), [lib/download.sh:95-140](lib/download.sh#L95-L140)
 

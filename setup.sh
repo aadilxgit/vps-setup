@@ -161,9 +161,83 @@ preflight_checks() {
 # ─────────────────────────────────────────────────────────────────────────────
 # Load and Validate Configuration
 # ─────────────────────────────────────────────────────────────────────────────
+is_valid_ipv6() {
+    local ip="$1"
+    [[ -z "$ip" ]] && return 1
+    [[ "$ip" =~ [^0-9a-fA-F:] ]] && return 1
+    if [[ "$ip" == *"::"* ]]; then
+        local rest="${ip#*::}"
+        if [[ "$rest" == *"::"* ]]; then return 1; fi
+    fi
+    local colons="${ip//[^:]}"
+    if [[ "$ip" != "::" ]] && (( ${#colons} < 2 || ${#colons} > 7 )); then return 1; fi
+    return 0
+}
+
+is_valid_hostname() {
+    local host="$1"
+    (( ${#host} < 1 || ${#host} > 253 )) && return 1
+    if [[ "$host" == \[*\] ]]; then
+        local raw_ipv6="${host:1:-1}"
+        is_valid_ipv6 "$raw_ipv6"
+        return $?
+    fi
+    if [[ "$host" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        local octs
+        IFS="." read -r -a octs <<< "$host"
+        local o
+        for o in "${octs[@]}"; do
+            if (( 10#$o > 255 )); then return 1; fi
+        done
+        return 0
+    fi
+    if [[ "$host" =~ ^[.-]|[\.-]$|\.\. ]]; then return 1; fi
+    local labels
+    IFS="." read -r -a labels <<< "$host"
+    local l
+    for l in "${labels[@]}"; do
+        if ! [[ "$l" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+is_valid_mirror_url() {
+    local mirror="$1"
+    if [[ "${mirror}" != https://* ]] || [[ "${mirror}" =~ [[:space:]\?#@] ]]; then
+        return 1
+    fi
+    local m_clean="${mirror#https://}"
+    local m_hp="${m_clean%%/*}"
+    local m_host="" m_port=""
+    if [[ -z "${m_hp}" ]]; then return 1; fi
+
+    if [[ "${m_hp}" == \[*\]* ]]; then
+        m_host="${m_hp%%\]*}]"
+        local m_rest="${m_hp#*\]}"
+        if [[ -n "${m_rest}" ]]; then
+            if ! [[ "${m_rest}" == :* ]]; then return 1; fi
+            m_port="${m_rest#:}"
+        fi
+    else
+        m_host="${m_hp%%:*}"
+        if [[ "${m_hp}" == *":"* ]]; then
+            m_port="${m_hp#*:}"
+        fi
+    fi
+
+    if [[ -n "${m_port}" ]]; then
+        if ! [[ "${m_port}" =~ ^[0-9]{1,5}$ ]]; then return 1; fi
+        local p_val=$(( 10#${m_port} ))
+        if (( p_val < 1 || p_val > 65535 )); then return 1; fi
+    fi
+
+    is_valid_hostname "${m_host}"
+}
+
 load_config() {
     log_step "Loading Configuration"
-
     local config_file="${SCRIPT_DIR}/config.env"
 
     if [[ ! -f "${config_file}" ]]; then
@@ -215,38 +289,7 @@ load_config() {
         DEBIAN_MIRROR="https://ftp.debian.org/debian"
     fi
     DEBIAN_MIRROR="${DEBIAN_MIRROR:-https://deb.debian.org/debian}"
-    local mirror_valid=true
-    if [[ "${DEBIAN_MIRROR}" != https://* ]] || [[ "${DEBIAN_MIRROR}" =~ [[:space:]\?#@] ]]; then
-        mirror_valid=false
-    else
-        local m_clean="${DEBIAN_MIRROR#https://}"
-        local m_hp="${m_clean%%/*}"
-        local m_host="" m_port=""
-        if [[ -z "${m_hp}" ]]; then
-            mirror_valid=false
-        elif [[ "${m_hp}" == \[*\]* ]]; then
-            m_host="${m_hp%%\]*}]"
-            local m_rest="${m_hp#*\]}"
-            if [[ -n "${m_rest}" ]]; then
-                if ! [[ "${m_rest}" == :* ]]; then mirror_valid=false; fi
-                m_port="${m_rest#:}"
-            fi
-        else
-            m_host="${m_hp%%:*}"
-            if [[ "${m_hp}" == *":"* ]]; then
-                m_port="${m_hp#*:}"
-            fi
-        fi
-        if [[ -n "${m_port}" ]]; then
-            if ! [[ "${m_port}" =~ ^[0-9]+$ ]] || (( m_port < 1 || m_port > 65535 )); then
-                mirror_valid=false;
-            fi
-        fi
-        if ! [[ "${m_host}" =~ ^([a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\])$ ]]; then
-            mirror_valid=false
-        fi
-    fi
-    if [[ "${mirror_valid}" != true ]]; then
+    if ! is_valid_mirror_url "${DEBIAN_MIRROR}"; then
         log_error "DEBIAN_MIRROR must be a valid HTTPS URL with a valid hostname authority (got '${DEBIAN_MIRROR}')."
         errors=$((errors + 1))
     fi
