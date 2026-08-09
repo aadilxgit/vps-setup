@@ -75,7 +75,7 @@ The kernel command line is dynamically built to ensure static IP binding, consol
 | `netcfg/use_autoconfig` | `false` | Prevent installer DHCP attempts |
 | `debian-installer/locale` | `${LOCALE}` | Locale for d-i environment |
 | `keyboard-configuration/xkb-keymap` | `${KEYMAP}` | Keyboard layout for d-i |
-| `console` | `tty0 console=ttyS0,115200n8` | Dual console for VNC + Serial |
+| `console` | `ttyS0,115200n8 console=tty0` | Dual console for Serial + VNC (`tty0` last for VNC primary) |
 | `hw-detect/load_firmware` | `true` | Auto-load firmware for hardware |
 
 ### Late Command Anti-Hang Design
