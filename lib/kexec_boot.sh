@@ -146,6 +146,7 @@ kexec_boot() {
     # Sync disks before kexec
     sync
 
-    # Execute!
-    kexec -e
+    # Execute kexec jump!
+    # -f (--force) prevents hanging on hypervisor/systemd driver shutdown handlers
+    systemctl kexec 2>/dev/null || kexec -e -f 2>/dev/null || kexec -e
 }
