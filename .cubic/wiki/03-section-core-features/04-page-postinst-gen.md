@@ -75,7 +75,7 @@ The generation script maps `config.env` variables to placeholders within the tem
 
 ## Staging and Delivery
 
-Once generated, `preseed.cfg`, `postinst.sh`, and the encrypted secret payload are injected directly into the `initrd.kexec.gz` RAMdisk payload for offline access by the Debian installer. Sources: [lib/kexec_boot.sh:17-20](lib/kexec_boot.sh#L17-L20)
+Once generated, `preseed.cfg`, `postinst.sh`, and the encrypted secret payload are injected directly into the `initrd.kexec.gz` RAMdisk payload for offline access by the Debian installer. Sources: [lib/kexec_boot.sh:40-85](lib/kexec_boot.sh#L40-L85)
 
 ```mermaid
 sequenceDiagram

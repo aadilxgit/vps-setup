@@ -58,7 +58,7 @@ download_netboot_files() {
 
             echo "    Attempting source: ${base_url}..."
 
-            if wget --https-only -q --show-progress -O "${work_dir}/linux" "${kernel_url}"; then
+            if wget --https-only --max-redirect=0 -q --show-progress -O "${work_dir}/linux" "${kernel_url}"; then
                 local k_size
                 k_size=$(stat -c%s "${work_dir}/linux" 2>/dev/null || echo 0)
                 if (( k_size >= 1000000 )); then
@@ -68,7 +68,7 @@ download_netboot_files() {
             fi
 
             if [[ "${kernel_success}" == true ]]; then
-                if wget --https-only -q --show-progress -O "${work_dir}/initrd.gz" "${initrd_url}"; then
+                if wget --https-only --max-redirect=0 -q --show-progress -O "${work_dir}/initrd.gz" "${initrd_url}"; then
                     local i_size
                     i_size=$(stat -c%s "${work_dir}/initrd.gz" 2>/dev/null || echo 0)
                     if (( i_size >= 1000000 )); then
@@ -103,7 +103,7 @@ download_netboot_files() {
     )
 
     for s_url in "${candidate_sums[@]}"; do
-        if wget --https-only -q -O "${work_dir}/SHA256SUMS.raw" "${s_url}" 2>/dev/null; then
+        if wget --https-only --max-redirect=0 -q -O "${work_dir}/SHA256SUMS.raw" "${s_url}" 2>/dev/null; then
             echo "    Verifying SHA256 checksums (from ${s_url})..."
             # Extract ONLY the two entries we need — linux and initrd.gz
             # The raw file contains hundreds of PXE/GRUB entries under the same path;

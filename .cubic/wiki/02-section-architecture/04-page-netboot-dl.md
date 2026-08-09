@@ -21,7 +21,7 @@ The following files were used as context for generating this wiki page:
 
 The Debian Netboot Download process is a critical preparatory phase in the `vps-setup` project, responsible for acquiring the necessary Debian installer components from official mirrors. Its primary purpose is to retrieve the Linux kernel and the initial RAM disk (`initrd.gz`) required to bootstrap a new Debian installation via `kexec`. This automated retrieval ensures that the system can transition from its current running state into the Debian installer environment without requiring physical media.
 
-Sources: [README.md:1-15](README.md#L1-L15), [lib/download.sh:7-10](lib/download.sh#L7-L10)
+Sources: [README.md:1-15](README.md#L1-L15), [lib/download.sh:11-25](lib/download.sh#L11-L25)
 
 ## Download Architecture and Multi-Mirror Failover
 
@@ -77,7 +77,7 @@ The system fetches three primary artifacts to ensure a successful and secure boo
 | `initrd.gz` | `.work/initrd.gz` | The compressed initial RAM disk containing installer tools. |
 | `SHA256SUMS` | Temporary | Metadata used to verify the integrity of the downloaded binaries. |
 
-Sources: [lib/download.sh:15-17](lib/download.sh#L15-L17), [setup.sh:293-298](setup.sh#L293-L298)
+Sources: [lib/download.sh:36-41](lib/download.sh#L36-L41), [setup.sh:448-460](setup.sh#L448-L460)
 
 ### Validation Logic
 To prevent corrupt installations, the script performs multiple checks:
@@ -85,7 +85,7 @@ To prevent corrupt installations, the script performs multiple checks:
 2.  **Size Validation**: Both the kernel and `initrd.gz` must exceed 1,000,000 bytes. If a file is smaller, the download is considered failed.
 3.  **Integrity Verification**: The script downloads the `SHA256SUMS` file from the mirror and executes `sha256sum -c --ignore-missing` to validate the files against official metadata.
 
-Sources: [lib/download.sh:25-28](lib/download.sh#L25-L28), [lib/download.sh:47-58](lib/download.sh#L47-L58), [lib/download.sh:61-71](lib/download.sh#L61-L71)
+Sources: [lib/download.sh:28-32](lib/download.sh#L28-L32), [lib/download.sh:61-81](lib/download.sh#L61-L81), [lib/download.sh:95-132](lib/download.sh#L95-L132)
 
 ## Configuration Integration
 
@@ -98,16 +98,16 @@ local kernel_url="${base_url}/linux"
 local initrd_url="${base_url}/initrd.gz"
 ```
 
-Sources: [lib/download.sh:14-17](lib/download.sh#L14-L17)
+Sources: [lib/download.sh:43-46](lib/download.sh#L43-L46)
 
 ### Relevant Configuration Variables
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
 | `DEBIAN_RELEASE` | `trixie` | The version of Debian to download (e.g., trixie, bookworm). |
-| `DEBIAN_MIRROR` | `https://deb.debian.org/debian` | The base URL of the Debian APT mirror. |
+| `DEBIAN_MIRROR` | `https://deb.debian.org/debian` | The base URL of the Debian APT mirror (must use HTTPS). |
 | `WORK_DIR` | `.work` | The directory where files are stored (defaulting to a subdirectory of the script path). |
 
-Sources: [setup.sh:159-160](setup.sh#L159-L160), [setup.sh:32](setup.sh#L32)
+Sources: [setup.sh:213-223](setup.sh#L213-L223), [setup.sh:32](setup.sh#L32)
 
 ## Execution Environment
 
@@ -115,8 +115,8 @@ The download process is triggered within the `main` function of `setup.sh`. It c
 *  **Dry Run (`--dry-run`)**: Instead of downloading, the script creates empty "mock" files in the `.work` directory to allow template generation and inspection without network activity.
 *  **Skip Download (`--skip-download`)**: Allows the user to reuse existing files already present in the `.work` directory.
 
-Sources: [setup.sh:345-356](setup.sh#L345-L356), [setup.sh:304-315](setup.sh#L304-L315)
+Sources: [setup.sh:375-405](setup.sh#L375-L405), [setup.sh:455-467](setup.sh#L455-L467)
 
 After successful download and verification, these files are utilized by `lib/kexec_boot.sh` to load the installer into memory, replacing the current running kernel.
 
-Sources: [lib/kexec_boot.sh:56-70](lib/kexec_boot.sh#L56-L70)
+Sources: [lib/kexec_boot.sh:40-85](lib/kexec_boot.sh#L40-L85)

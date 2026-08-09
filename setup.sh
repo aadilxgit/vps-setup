@@ -198,11 +198,6 @@ load_config() {
         errors=$((errors + 1))
     fi
 
-    if (( errors > 0 )); then
-        log_error "${errors} configuration error(s) found. Please edit config.env."
-        exit 1
-    fi
-
     # Set defaults for optional fields
     INSTALL_ROLE="${INSTALL_ROLE:-standard}"
     HOSTNAME="${HOSTNAME:-vps}"
@@ -211,9 +206,24 @@ load_config() {
     LOCALE="${LOCALE:-en_US.UTF-8}"
     KEYMAP="${KEYMAP:-us}"
     DEBIAN_RELEASE="${DEBIAN_RELEASE:-trixie}"
-    DEBIAN_MIRROR="${DEBIAN_MIRROR:-https://deb.debian.org/debian}"
     EXTRA_PACKAGES="${EXTRA_PACKAGES:-}"
 
+    # Auto-upgrade known legacy HTTP Debian mirrors to HTTPS
+    if [[ "${DEBIAN_MIRROR:-}" == "http://deb.debian.org/debian" ]]; then
+        DEBIAN_MIRROR="https://deb.debian.org/debian"
+    elif [[ "${DEBIAN_MIRROR:-}" == "http://ftp.debian.org/debian" ]]; then
+        DEBIAN_MIRROR="https://ftp.debian.org/debian"
+    fi
+    DEBIAN_MIRROR="${DEBIAN_MIRROR:-https://deb.debian.org/debian}"
+    if [[ "${DEBIAN_MIRROR}" != https://* ]]; then
+        log_error "DEBIAN_MIRROR must use HTTPS (got '${DEBIAN_MIRROR}')."
+        errors=$((errors + 1))
+    fi
+
+    if (( errors > 0 )); then
+        log_error "${errors} configuration error(s) found. Please edit config.env."
+        exit 1
+    fi
     export USERNAME SSH_PORT SSH_PUBKEY INSTALL_ROLE
     export HOSTNAME DOMAIN TIMEZONE LOCALE KEYMAP
     export DEBIAN_RELEASE DEBIAN_MIRROR EXTRA_PACKAGES

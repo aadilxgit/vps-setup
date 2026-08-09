@@ -55,19 +55,19 @@ During the active installation, the Debian installer loads configuration directl
 
 ### Netboot Download Verification
 The `lib/download.sh` script verifies the integrity of the downloaded Debian kernel (`linux`) and initial RAM disk (`initrd.gz`) using SHA256 checksums fetched from the mirror. If checksum verification fails, a warning is issued to the console.
-Sources: [lib/download.sh:58-69](lib/download.sh#L58-L69)
+Sources: [lib/download.sh:95-132](lib/download.sh#L95-L132)
 
 ### Installer Payload & Network Logs
 If the Debian installer cannot load configuration, ensure `initrd.kexec.gz` contains `preseed.cfg`.
 *  **Connectivity**: The installer requires static IP parameters passed via kernel cmdline to reach mirror services.
-Sources: [lib/kexec_boot.sh:82-95](lib/kexec_boot.sh#L82-L95)
+Sources: [lib/kexec_boot.sh:40-85](lib/kexec_boot.sh#L40-L85), [lib/kexec_boot.sh:87-152](lib/kexec_boot.sh#L87-L152)
 
 | Component | Log/Output Location | Purpose |
 | :--- | :--- | :--- |
 | **kexec Load** | Console Output | Confirms the kernel and initrd were loaded into memory. |
 | **Network Config** | `print_network_config` | Displays detected/configured IPv4, Gateway, and DNS. |
 
-Sources: [lib/kexec_boot.sh:40-45](lib/kexec_boot.sh#L40-L45), [lib/detect_network.sh:135-157](lib/detect_network.sh#L135-L157)
+Sources: [lib/kexec_boot.sh:40-85](lib/kexec_boot.sh#L40-L85), [lib/detect_network.sh:135-157](lib/detect_network.sh#L135-L157)
 
 ## Post-Installation & Security Reports
 
