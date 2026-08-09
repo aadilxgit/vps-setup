@@ -73,12 +73,22 @@ kexec_boot() {
         fi
     done
 
-    # Build kernel command line
-    # The installer needs network to fetch the preseed file, so we configure
-    # it via kernel parameters (netcfg)
+    # Inject preseed.cfg, postinst.sh, and encrypted secrets directly into initrd.gz
+    # This guarantees 100% offline self-contained RAM installation without network HTTP dependencies
+    if [[ -f "${serve_dir}/preseed.cfg" && -f "${serve_dir}/postinst.sh" ]]; then
+        echo "==> Injecting preseed and post-install configurations into initrd.gz..."
+        (
+            cd "${serve_dir}"
+            find preseed.cfg postinst.sh "${INSTALL_TOKEN:-.}" | cpio -H newc -o 2>/dev/null
+        ) | gzip -9 >> "${initrd}"
+        echo "    ✓ Configuration payload injected into initrd.gz"
+    fi
+
     local kcmdline=""
     kcmdline+="auto=true "
     kcmdline+="priority=critical "
+    kcmdline+="file=/preseed.cfg "
+    kcmdline+="preseed/file=/preseed.cfg "
     kcmdline+="interface=auto "
     kcmdline+="netcfg/choose_interface=auto "
     kcmdline+="netcfg/disable_autoconfig=true "
@@ -89,11 +99,10 @@ kexec_boot() {
     kcmdline+="netcfg/confirm_static=true "
     kcmdline+="netcfg/get_hostname=${HOSTNAME} "
     kcmdline+="netcfg/get_domain=${DOMAIN:-local} "
-    kcmdline+="preseed/url=${PRESEED_URL} "
     kcmdline+="locale=${LOCALE} "
     kcmdline+="keymap=${KEYMAP} "
-    kcmdline+="console=tty0 "
     kcmdline+="console=ttyS0,115200n8 "
+    kcmdline+="console=tty0 "
 
     echo ""
     echo "    Kernel:  ${kernel}"

@@ -116,10 +116,11 @@ d-i grub-installer/bootdev string __DISK__
 d-i finish-install/reboot_in_progress note
 
 ### --- Late Command (Post-Install Configuration) ----------------------------
-# Download and execute the post-install script from the temporary HTTP server.
-# This configures SSH hardening, dropbear, network, firewall, etc.
+# Copy and execute postinst.sh directly from initrd RAM
 d-i preseed/late_command string \
-    in-target wget -O /tmp/postinst.sh http://__PRESEED_SERVER__/postinst.sh; \
-    in-target chmod +x /tmp/postinst.sh; \
+    cp /postinst.sh /target/tmp/postinst.sh; \
+    mkdir -p /target/tmp/__INSTALL_TOKEN__; \
+    cp /__INSTALL_TOKEN__/.secret_keys.enc /target/tmp/__INSTALL_TOKEN__/.secret_keys.enc 2>/dev/null || true; \
+    chmod +x /target/tmp/postinst.sh; \
     in-target /bin/bash /tmp/postinst.sh; \
-    in-target rm -f /tmp/postinst.sh
+    rm -rf /target/tmp/postinst.sh /target/tmp/__INSTALL_TOKEN__
