@@ -64,33 +64,72 @@ kexec_boot() {
         return 1
     fi
 
-    # Validate required network parameters and PRESEED_URL
+    # Validate required network parameters
     local v
-    for v in IPV4_ADDRESS IPV4_NETMASK IPV4_GATEWAY PRESEED_URL; do
+    for v in IPV4_ADDRESS IPV4_NETMASK IPV4_GATEWAY; do
         if [[ -z "${!v:-}" ]]; then
             echo "ERROR: ${v} is empty. Cannot build the installer command line." >&2
             return 1
         fi
     done
 
-    # Inject preseed.cfg, postinst.sh, and encrypted secrets directly into initrd.gz
+    # Inject preseed.cfg, postinst.sh, and encrypted secrets directly into initrd payload
     # This guarantees 100% offline self-contained RAM installation without network HTTP dependencies
-    if [[ -f "${serve_dir}/preseed.cfg" && -f "${serve_dir}/postinst.sh" ]]; then
-        echo "==> Injecting preseed and post-install configurations into initrd.gz..."
-        (
-            cd "${serve_dir}"
-            find preseed.cfg postinst.sh "${INSTALL_TOKEN:-.}" | cpio -H newc -o 2>/dev/null
-        ) | gzip -9 >> "${initrd}"
-        echo "    ✓ Configuration payload injected into initrd.gz"
+    local kexec_initrd="${work_dir}/initrd.kexec.gz"
+    cp "${initrd}" "${kexec_initrd}"
+
+    # SECURITY: both preseed.cfg and postinst.sh MUST exist — abort if missing
+    if [[ ! -f "${work_dir}/preseed.cfg" ]]; then
+        echo "ERROR: preseed.cfg not found in ${work_dir}. Cannot proceed." >&2
+        return 1
+    fi
+    if [[ ! -f "${work_dir}/postinst.sh" ]]; then
+        echo "ERROR: postinst.sh not found in ${work_dir}. Cannot proceed." >&2
+        return 1
     fi
 
+    # Verify cpio is available (required for initrd injection)
+    if ! command -v cpio &>/dev/null; then
+        echo "ERROR: 'cpio' command not found. Install it to proceed." >&2
+        return 1
+    fi
+
+    echo "==> Injecting preseed and post-install configurations into initrd.gz..."
+    local inject_rc=0
+    (
+        cd "${work_dir}"
+        if [[ -n "${INSTALL_TOKEN:-}" && -d "${INSTALL_TOKEN}" ]]; then
+            find preseed.cfg postinst.sh "${INSTALL_TOKEN}" | cpio -H newc -o 2>/dev/null
+        else
+            find preseed.cfg postinst.sh | cpio -H newc -o 2>/dev/null
+        fi
+    ) | gzip -9 >> "${kexec_initrd}" || inject_rc=$?
+
+    if [[ "${inject_rc}" -ne 0 ]]; then
+        echo "ERROR: Failed to inject payload into initrd (cpio/gzip pipeline returned ${inject_rc})." >&2
+        return 1
+    fi
+
+    # Validate the resulting initrd is larger than the original (payload was appended)
+    local orig_size kexec_size
+    orig_size=$(stat -c%s "${initrd}" 2>/dev/null || echo 0)
+    kexec_size=$(stat -c%s "${kexec_initrd}" 2>/dev/null || echo 0)
+    if (( kexec_size <= orig_size )); then
+        echo "ERROR: initrd payload injection failed — output file is not larger than input." >&2
+        return 1
+    fi
+    echo "    ✓ Configuration payload injected into initrd ($(numfmt --to=iec-i --suffix=B $((kexec_size - orig_size)) 2>/dev/null || echo "$((kexec_size - orig_size)) bytes") added)"
+
     local kcmdline=""
+    # Core automation: auto mode + suppress all non-critical prompts
     kcmdline+="auto=true "
     kcmdline+="priority=critical "
-    kcmdline+="file=/preseed.cfg "
+    kcmdline+="DEBCONF_DEBUG=5 "
+    # Preseed: injected into initrd, d-i finds it at root
     kcmdline+="preseed/file=/preseed.cfg "
-    kcmdline+="interface=auto "
-    kcmdline+="netcfg/choose_interface=auto "
+    kcmdline+="file=/preseed.cfg "
+    # Network: static configuration matching the current system
+    kcmdline+="netcfg/choose_interface=${INTERFACE:-auto} "
     kcmdline+="netcfg/disable_autoconfig=true "
     kcmdline+="netcfg/get_ipaddress=${IPV4_ADDRESS} "
     kcmdline+="netcfg/get_netmask=${IPV4_NETMASK} "
@@ -99,20 +138,27 @@ kexec_boot() {
     kcmdline+="netcfg/confirm_static=true "
     kcmdline+="netcfg/get_hostname=${HOSTNAME} "
     kcmdline+="netcfg/get_domain=${DOMAIN:-local} "
+    # Locale and keyboard
+    kcmdline+="debian-installer/locale=${LOCALE} "
+    kcmdline+="keyboard-configuration/xkb-keymap=${KEYMAP} "
     kcmdline+="locale=${LOCALE} "
     kcmdline+="keymap=${KEYMAP} "
-    kcmdline+="console=ttyS0,115200n8 "
+    # Console: support both VGA console and serial console for headless VPS
     kcmdline+="console=tty0 "
+    kcmdline+="console=ttyS0,115200n8 "
+    # Prevent installer from trying DHCP (wastes time, can override static config)
+    kcmdline+="netcfg/use_autoconfig=false "
+    kcmdline+="hw-detect/load_firmware=true "
 
     echo ""
     echo "    Kernel:  ${kernel}"
-    echo "    Initrd:  ${initrd}"
+    echo "    Initrd:  ${kexec_initrd}"
     echo "    Cmdline: ${kcmdline}"
     echo ""
 
     # Load the kernel
     echo "    Loading kernel into memory..."
-    kexec -l "${kernel}" --initrd="${initrd}" --append="${kcmdline}" || {
+    kexec -l "${kernel}" --initrd="${kexec_initrd}" --append="${kcmdline}" || {
         echo "ERROR: kexec -l failed. Your VPS may not support kexec." >&2
         echo "       This typically happens on container-based virtualization (OpenVZ)." >&2
         return 1
@@ -156,6 +202,6 @@ kexec_boot() {
     sync
 
     # Execute kexec jump!
-    # -f (--force) prevents hanging on hypervisor/systemd driver shutdown handlers
-    systemctl kexec 2>/dev/null || kexec -e -f 2>/dev/null || kexec -e
+    # -f (--force) bypasses systemd shutdown hangs on cloud hypervisors
+    kexec -e -f 2>/dev/null || systemctl kexec 2>/dev/null || kexec -e
 }

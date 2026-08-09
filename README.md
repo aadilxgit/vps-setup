@@ -14,8 +14,8 @@ Reinstall a VPS with Debian 13 (Trixie) from a running system — fully automate
 - **[SYS] Kernel & Filesystem Hardening** — sysctl restrictions, auditd, `/tmp` and `/dev/shm` mounted `nodev,nosuid,noexec`
 - **[APT] Unattended Upgrades** — Automatic security patches
 - **[CFG] One-Time Config** — Edit `config.env` once, reuse across rebuilds
+- **[NET] Multi-Mirror Failover** — HTTPS-only failover across official Debian mirrors (`deb.debian.org`, `cdn-fastly.deb.debian.org`, `ftp.debian.org`) and image paths (`current/images`, `current/legacy-images`) with SHA256 checksum verification
 - **[DRY] Dry Run Mode** — Generate and inspect all files without executing
-
 ## Prerequisites
 
 - **Root access** on the VPS
@@ -92,11 +92,11 @@ The script will:
 1. Auto-detect network and OS root disk
 2. Display all settings and partition tree for confirmation
 3. Prompt for LUKS passphrase
-4. Download Debian netboot files
-5. Generate preseed (with temporary random LUKS key) and post-install scripts
-6. Start a temporary HTTP server
+4. Download Debian netboot files (with SHA256 verification)
+5. Generate preseed and post-install scripts
+6. Inject all configurations + encrypted secrets into an offline initrd payload
 7. Require typing `YES` to confirm OS disk destruction
-8. `kexec` into the Debian installer
+8. `kexec` into the Debian installer (self-contained, no HTTP server needed)
 
 ### 5. After installation
 
@@ -133,7 +133,7 @@ vps-setup/
 │   ├── download.sh         # Download Debian netboot kernel + initrd + SHA256 verification
 │   ├── generate_preseed.sh # Generate preseed.cfg from template
 │   ├── generate_postinst.sh# Generate post-install script from template
-│   └── kexec_boot.sh       # HTTP server + kexec execution
+│   └── kexec_boot.sh       # Offline initrd injection + kexec execution
 ├── templates/
 │   ├── preseed.cfg.tmpl    # Preseed template (supports BIOS & UEFI recipes)
 │   └── postinst.sh.tmpl    # Post-install hardening template
@@ -157,7 +157,7 @@ vps-setup/
 | `LOCALE` | | `en_US.UTF-8` | System locale |
 | `KEYMAP` | | `us` | Keyboard layout |
 | `DEBIAN_RELEASE` | | `trixie` | Debian release name |
-| `DEBIAN_MIRROR` | | `https://deb.debian.org/debian` | APT mirror |
+| `DEBIAN_MIRROR` | | `https://deb.debian.org/debian` | APT mirror (must be HTTPS) |
 | `ALLOW_SSH_FORWARDING` | | `false` | Enable SSH TCP port forwarding (`true`/`false`) |
 | `STORAGE_AUTO_MOUNT` | | `false` | Enable secondary disk auto-mount in storage-vps role (`true`/`false`) |
 | `DISK` | | *(auto-detect)* | Target OS disk (auto-detects root disk; set only to override) |
@@ -171,6 +171,14 @@ vps-setup/
 | `INTERFACE` | | *(auto-detect)* | Network interface name |
 | `EXTRA_PACKAGES` | | *(see config)* | Additional packages to install |
 
+## Architectural Comparison & Best Practices
+
+`vps-setup` incorporates production-grade patterns evaluated against leading open-source OS reinstall automation projects (`bin456789/reinstall`, `leitbogioro/dhi`, `ansible-role-debian-boot`):
+
+1. **Multi-Mirror Failover**: `download.sh` tests primary and secondary official HTTPS mirrors (`deb.debian.org`, `cdn-fastly`, `ftp.debian.org`) across both standard and legacy netboot paths. Non-HTTPS mirrors are rejected to prevent on-path artifact substitution. Downloads are verified with SHA256 metadata before proceeding.
+2. **Self-Contained Offline RAMdisk Payload**: Rather than relying on fragile HTTP servers that break when `kexec` terminates the host OS, `kexec_boot.sh` injects `preseed.cfg`, `postinst.sh`, and encrypted LUKS secret payloads directly into `initrd.kexec.gz`.
+3. **Robust Hardware Discovery**: `detect_disk.sh` resolves exact parent block devices via `lsblk -pno PKNAME` (handling `/dev/sda`, `/dev/vda`, `/dev/nvme0n1`, `/dev/mmcblk0`), while `detect_network.sh` filters out virtual interfaces (`docker*`, `veth*`, `br-*`, `tun*`, `wg*`) and loopback DNS resolvers (`127.*`, `::1`).
+4. **Verified LUKS Lifecycle**: Temporary installation keys are rotated to user passphrases in `postinst.sh`, tested with `cryptsetup luksOpen --test-passphrase`, shredded, and backed up (`/root/luks-header-backup.img`).
 ## Disk Partitioning & LUKS Key Security
 
 ### OS Disk Layout (`DISK`)

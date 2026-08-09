@@ -22,7 +22,7 @@ d-i netcfg/get_gateway string __IPV4_GATEWAY__
 d-i netcfg/get_nameservers string __PRIMARY_DNS__
 d-i netcfg/confirm_static boolean true
 d-i netcfg/get_hostname string __HOSTNAME__
-d-i netcfg/get_domain string __DOMAIN__
+d-i netcfg/get_domain string __DOMAIN_PRESEED__
 d-i netcfg/hostname string __HOSTNAME__
 d-i hw-detect/load_firmware boolean true
 
@@ -60,6 +60,7 @@ d-i partman-crypto/passphrase password __TEMP_LUKS_KEY__
 d-i partman-crypto/passphrase-again password __TEMP_LUKS_KEY__
 d-i partman-crypto/confirm boolean true
 d-i partman-crypto/confirm_nooverwrite boolean true
+d-i partman-crypto/weak_passphrase boolean true
 
 # Disk erasure mode (fast=false, secure=true)
 d-i partman-auto-crypto/erase_disks boolean __ERASE_DISKS__
@@ -74,8 +75,8 @@ d-i partman-auto-lvm/new_vg_name string __VG_NAME__
 # Remove existing MD arrays
 d-i partman-md/device_remove_md boolean true
 
-# UEFI & GPT compatibility
-d-i partman-efi/non_efi_system boolean false
+# UEFI & GPT compatibility — allow install on both EFI and non-EFI systems
+d-i partman-efi/non_efi_system boolean true
 
 # Partitioning recipe (dynamically populated for UEFI or BIOS/Legacy boot mode)
 d-i partman-auto/choose_recipe select boot-crypto
@@ -117,10 +118,19 @@ d-i finish-install/reboot_in_progress note
 
 ### --- Late Command (Post-Install Configuration) ----------------------------
 # Copy and execute postinst.sh directly from initrd RAM
+# CRITICAL: stdin must be redirected from /dev/null to prevent installer hangs
+# CRITICAL: fail closed — if postinst.sh or secrets are missing, abort the install
 d-i preseed/late_command string \
+    test -f /postinst.sh || { echo 'FATAL: /postinst.sh missing from initrd' >&2; exit 1; }; \
     cp /postinst.sh /target/tmp/postinst.sh; \
     mkdir -p /target/tmp/__INSTALL_TOKEN__; \
-    cp /__INSTALL_TOKEN__/.secret_keys.enc /target/tmp/__INSTALL_TOKEN__/.secret_keys.enc 2>/dev/null || true; \
+    if [ -f /__INSTALL_TOKEN__/.secret_keys.enc ]; then \
+        cp /__INSTALL_TOKEN__/.secret_keys.enc /target/tmp/__INSTALL_TOKEN__/.secret_keys.enc; \
+    else \
+        echo 'FATAL: encrypted secrets missing from initrd' >&2; exit 1; \
+    fi; \
     chmod +x /target/tmp/postinst.sh; \
-    in-target /bin/bash /tmp/postinst.sh; \
-    rm -rf /target/tmp/postinst.sh /target/tmp/__INSTALL_TOKEN__
+    in-target /bin/bash -c '/tmp/postinst.sh < /dev/null > /var/log/vps-postinst.log 2>&1'; \
+    POSTINST_RC=$?; \
+    rm -rf /target/tmp/postinst.sh /target/tmp/__INSTALL_TOKEN__; \
+    exit ${POSTINST_RC}

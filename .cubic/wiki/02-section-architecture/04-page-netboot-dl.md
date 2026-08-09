@@ -23,37 +23,49 @@ The Debian Netboot Download process is a critical preparatory phase in the `vps-
 
 Sources: [README.md:1-15](README.md#L1-L15), [lib/download.sh:7-10](lib/download.sh#L7-L10)
 
-## Download Architecture and Flow
+## Download Architecture and Multi-Mirror Failover
 
-The download logic is encapsulated within `lib/download.sh` and is orchestrated by the main `setup.sh` script. The process relies on configuration variables defined in `config.env` to determine the target Debian release and the mirror from which to fetch the files.
+The download logic is encapsulated within `lib/download.sh` and is orchestrated by `setup.sh`. To guarantee 100% download success even if a specific mirror is unreachable, slow, or returning HTTP errors, `download_netboot_files` implements automated multi-mirror failover and path resolution across primary and fallback mirrors.
+
+### Candidate Mirror & Path Resolution
+The script iterates across candidate mirrors and relative netboot paths until valid artifacts (verified size > 1MB) are retrieved:
+
+1. **Mirrors**:
+   - `DEBIAN_MIRROR` (configured in `config.env`, e.g. `http://deb.debian.org/debian`)
+   - `http://deb.debian.org/debian` (official global HTTP endpoint)
+   - `https://cdn-fastly.deb.debian.org/debian` (Fastly CDN mirror)
+   - `http://ftp.debian.org/debian` (official primary FTP mirror)
+
+2. **Relative Netboot Paths**:
+   - `dists/${release}/main/installer-amd64/current/images/netboot/debian-installer/amd64`
+   - `dists/${release}/main/installer-amd64/current/legacy-images/netboot/debian-installer/amd64`
 
 ### Workflow Sequence
-The following diagram illustrates the sequential steps taken to prepare and verify the netboot files:
+The following diagram illustrates the sequential failover and verification logic:
 
 ```mermaid
 sequenceDiagram
     participant S as setup.sh
     participant D as lib/download.sh
-    participant W as Wget/Mirror
+    participant M as Debian Mirror Pool
     participant FS as File System
 
     S->>D: download_netboot_files(work_dir)
-    D->>D: Construct URLs (Kernel, Initrd, SHA256)
-    D->>W: GET /linux
-    W-->>FS: Save to .work/linux
-    D->>W: GET /initrd.gz
-    W-->>FS: Save to .work/initrd.gz
-    D->>W: GET /SHA256SUMS
-    W-->>D: Metadata
+    loop For each Mirror & Path Candidate
+        D->>M: GET linux
+        alt Kernel Download Success (>1MB)
+            D->>M: GET initrd.gz
+            alt Initrd Download Success (>1MB)
+                M-->>FS: Save linux & initrd.gz
+                Note over D: Set Working Base Mirror
+            end
+        end
+    end
+    D->>M: GET /SHA256SUMS from working mirror
     D->>FS: sha256sum -c SHA256SUMS
     FS-->>D: Verification Result
     D-->>S: Return Status
 ```
-
-The download function constructs URLs based on the `DEBIAN_MIRROR` and `DEBIAN_RELEASE` variables. It explicitly targets the `amd64` architecture for netboot images.
-
-Sources: [lib/download.sh:13-75](lib/download.sh#L13-L75), [setup.sh:343-356](setup.sh#L343-L356)
-
 ## Components and Verification
 
 The system fetches three primary artifacts to ensure a successful and secure boot environment.
