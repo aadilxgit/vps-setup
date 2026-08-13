@@ -2,56 +2,59 @@
 
 > This directory is machine-managed by cubic. Edit wiki content through [cubic wiki settings](https://www.cubic.dev/wiki/aadilxgit/vps-setup) and custom instructions.
 
-Wiki version: 1
-Source commit: 5b6800040cb5e7b0136cc59f12a6a3989f58d791
+Wiki version: 2
+Source commit: 751213ad392f83f3dec21308ba189250545166a9
 Source branch: main
-Generated: 2026-08-09T05:33:16.811Z
+Generated: 2026-08-11T07:24:39.583Z
 
 ## Contents
 
 ### Overview
 
-- [Introduction & Prerequisites](01-section-overview/01-page-intro.md)
-- [Quick Start Guide](01-section-overview/02-page-quick-start.md)
-- [First Boot Checklist](01-section-overview/03-page-first-boot.md)
+- [Introduction & Prerequisites](01-sec-overview/01-page-intro.md)
+- [Quick Start Guide](01-sec-overview/02-page-quick-start.md)
+- [First Boot Checklist](01-sec-overview/03-page-first-boot.md)
 
 ### System Architecture
 
-- [High-Level Architecture](02-section-architecture/01-page-architecture.md)
-- [Core Execution Flow (setup.sh)](02-section-architecture/02-page-setup-sh.md)
-- [Kexec & Temporary HTTP Server](02-section-architecture/03-page-kexec-boot.md)
-- [Debian Netboot Download](02-section-architecture/04-page-netboot-dl.md)
+- [High-Level Architecture](02-sec-architecture/01-page-architecture.md)
+- [Core Execution Flow (setup.sh)](02-sec-architecture/02-page-setup-flow.md)
+- [Kexec & RAMdisk Payload Injection](02-sec-architecture/03-page-kexec-injection.md)
+- [Debian Netboot Download & Verification](02-sec-architecture/04-page-netboot-download.md)
+- [Temporary HTTP Server Architecture](02-sec-architecture/05-page-http-server.md)
 
 ### Core Features
 
-- [Network Auto-Detection](03-section-core-features/01-page-network-detect.md)
-- [Disk & Boot Mode Auto-Detection](03-section-core-features/02-page-disk-detect.md)
-- [Preseed Generation](03-section-core-features/03-page-preseed-gen.md)
-- [Post-Install Generation](03-section-core-features/04-page-postinst-gen.md)
+- [Network Auto-Detection](03-sec-core-features/01-page-network-detect.md)
+- [Disk & Boot Mode Auto-Detection](03-sec-core-features/02-page-disk-detect.md)
+- [Preseed Generation & Templating](03-sec-core-features/03-page-preseed-gen.md)
+- [Post-Install Script Generation](03-sec-core-features/04-page-postinst-gen.md)
 
 ### Data Management & Storage
 
-- [LUKS Full-Disk Encryption](04-section-data-management/01-page-luks-encryption.md)
-- [LUKS Key Security Lifecycle](04-section-data-management/02-page-luks-key-lifecycle.md)
-- [Remote SSH Unlock](04-section-data-management/03-page-ssh-unlock.md)
-- [Disk Partitioning & LVM Layout](04-section-data-management/04-page-disk-layout.md)
-- [Installation Roles](04-section-data-management/05-page-roles.md)
-- [Storage Wipe Modes](04-section-data-management/06-page-wipe-modes.md)
+- [LUKS Full-Disk Encryption Setup](04-sec-data-management/01-page-luks-encryption.md)
+- [Installation Roles](04-sec-data-management/02-page-install-roles.md)
+- [Disk Partitioning & LVM Layout](04-sec-data-management/03-page-disk-layout.md)
+- [Storage Wipe Modes](04-sec-data-management/04-page-wipe-modes.md)
 
 ### Security & Hardening
 
-- [SSH Hardening](05-section-security/01-page-ssh-hardening.md)
-- [Firewall & Fail2ban Setup](05-section-security/02-page-ufw-fail2ban.md)
-- [Kernel & Filesystem Hardening](05-section-security/03-page-fs-hardening.md)
-- [Unattended Upgrades](05-section-security/04-page-apt-upgrades.md)
+- [LUKS Key Security Lifecycle](05-sec-security/01-page-key-lifecycle.md)
+- [Remote SSH Unlock (Dropbear)](05-sec-security/02-page-remote-unlock.md)
+- [SSH Hardening (OpenSSH)](05-sec-security/03-page-ssh-hardening.md)
+- [Firewall & Fail2ban Setup](05-sec-security/04-page-firewall-fail2ban.md)
+- [Kernel & Filesystem Hardening](05-sec-security/05-page-fs-hardening.md)
+- [Unattended Security Upgrades](05-sec-security/06-page-unattended-upgrades.md)
+- [Secret Transport & Injection](05-sec-security/07-page-secret-transport.md)
 
 ### Configuration
 
-- [Configuration Reference (config.env)](06-section-configuration/01-page-config-env.md)
-- [Dry Run Mode](06-section-configuration/02-page-dry-run.md)
+- [Configuration Reference (config.env)](06-sec-configuration/01-page-config-env.md)
+- [Dry Run Mode](06-sec-configuration/02-page-dry-run.md)
 
 ### Operations & Maintenance
 
-- [LUKS Header Backup & Recovery](07-section-ops/01-page-header-backup.md)
-- [Testing & Validation Checklist](07-section-ops/02-page-testing.md)
-- [Troubleshooting & Logs](07-section-ops/03-page-troubleshooting.md)
+- [LUKS Header Backup & Recovery](07-sec-ops/01-page-header-backup.md)
+- [Testing & Validation Checklist](07-sec-ops/02-page-testing-checklist.md)
+- [Troubleshooting & Logs](07-sec-ops/03-page-troubleshooting.md)
+- [Security Baseline & Auditing](07-sec-ops/04-page-security-baseline.md)

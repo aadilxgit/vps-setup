@@ -4,6 +4,6 @@ This directory contains AI-generated repository documentation maintained by cubi
 Treat the repository code as the source of truth when these docs disagree with implementation.
 
 Repository: aadilxgit/vps-setup
-Wiki version: 1
-Source commit: 5b6800040cb5e7b0136cc59f12a6a3989f58d791
-Generated: 2026-08-09T05:33:16.811Z
+Wiki version: 2
+Source commit: 751213ad392f83f3dec21308ba189250545166a9
+Generated: 2026-08-11T07:24:39.583Z
